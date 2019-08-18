@@ -35,6 +35,7 @@ const TextField = memo(
         disabled,
         autoComplete,
         onChange,
+        onBlur,
         required,
         error,
     }) => {
@@ -47,18 +48,19 @@ const TextField = memo(
             dispatch({ type: ACTIVATE_FIELD });
         };
 
-        const disableField = e => {
-            if (e.target.value === '') {
-                dispatch({ type: DISABLE_FOCUS });
-            }
-        };
-
         const handleChange = e => {
             e.persist();
-            const { name, value } = e.target;
+            const { value } = e.target;
             dispatch({ type: UPDATE_INPUT_VALUE, value });
             e.preventDefault();
-            onChange(name, value);
+            onChange(e);
+        };
+
+        const handleBlur = e => {
+            // if (e.target.value === '') {
+            //     dispatch({ type: DISABLE_FOCUS });
+            // }
+            onBlur(e);
         };
 
         return (
@@ -77,8 +79,8 @@ const TextField = memo(
                         autoComplete={autoComplete}
                         value={state.inputValue}
                         onChange={handleChange}
+                        onBlur={handleBlur}
                         onFocus={activateField}
-                        onBlur={disableField}
                         isLabelActive={!!state.inputValue}
                     />
                 </TextFieldLabel>
@@ -101,6 +103,7 @@ TextField.prototype = {
     autoComplete: PropTypes.string,
     value: PropTypes.string,
     onChange: PropTypes.func,
+    onBlur: PropTypes.func,
 };
 
 TextField.defaultProps = {
@@ -113,4 +116,5 @@ TextField.defaultProps = {
     autoComplete: 'on',
     value: '',
     onChange: () => {},
+    onBlur: () => {},
 };

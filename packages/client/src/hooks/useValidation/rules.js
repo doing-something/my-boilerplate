@@ -48,9 +48,9 @@ export const isRequired = v => !isEmpty(v);
 export const isTrue = v => !!v;
 export const isNumber = v => !Number.isNaN(Number(v));
 export const hasCheckedValue = arr => arr.length;
-export const isSameWith = R.curry((target, v, vs) => target === v);
+export const isSameWith = R.curry((target, v) => target === v);
 export const lengthBetween = R.curry(
-    (min, max, v, vs) => String(v).length >= min && String(v).length <= max,
+    (min, max, v) => String(v).length >= min && String(v).length <= max,
 );
 export const isNotValidEmail = v => !isValidEmailFormat(v);
 export const isPhoneNumber = v =>

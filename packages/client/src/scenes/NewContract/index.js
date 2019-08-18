@@ -43,11 +43,11 @@ const NewContract = props => {
         },
     });
 
-    const submitForm = () => {
-        createContract({
+    const submitForm = async context => {
+        await createContract({
             variables: {
-                title: formState['title'].value,
-                description: formState['description'].value,
+                title: context.values['title'],
+                description: context.values['description'],
             },
         })
             .then(() => {
@@ -58,13 +58,11 @@ const NewContract = props => {
             });
     };
 
-    const {
-        formState,
-        isSubmitting,
-        handleChange,
-        handleSubmit,
-    } = useValidation(configs, submitForm);
-    G.log('NewContract formState', error, formState);
+    const { isSubmitted, getFieldProps, handleSubmit } = useValidation(
+        configs,
+        submitForm,
+    );
+    G.log('NewContract formState', error);
 
     return (
         <div className="wrap">
@@ -81,15 +79,13 @@ const NewContract = props => {
                 <TextField
                     placeholder="Contract Title"
                     title="Contract Title"
-                    onChange={handleChange}
-                    {...formState['title']}
+                    {...getFieldProps('title')}
                 />
                 <br />
                 <TextField
                     placeholder="Description"
                     title="description"
-                    onChange={handleChange}
-                    {...formState['description']}
+                    {...getFieldProps('description')}
                     multiLine
                 />
                 <br />
@@ -99,7 +95,7 @@ const NewContract = props => {
                     primary
                     block
                     loading={loading}
-                    disabled={isSubmitting && !error}
+                    disabled={isSubmitted && !error}
                 />
             </form>
             {error && (

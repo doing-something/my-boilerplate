@@ -19,29 +19,32 @@ import useValidation, {
 import { ButtonWrap } from './styles';
 
 const configs = {
-    email: {
-        rules: [
-            [isRequired, 'email을 입력하세요.'],
-            [isEmail, '올바른 email 주소가 아닙니다.'],
-        ],
+    fields: {
+        email: {
+            rules: [
+                [isRequired, 'email을 입력하세요.'],
+                [isEmail, '올바른 email 주소가 아닙니다.'],
+            ],
+        },
+        password: {
+            rules: [
+                [isRequired, '비밀번호를 입력하세요.'],
+                [lengthBetween(8, 35), '8-35 자를 입력하세요.'],
+            ],
+        },
     },
-    password: {
-        rules: [
-            [isRequired, '비밀번호를 입력하세요.'],
-            [lengthBetween(8, 35), '8-35 자를 입력하세요.'],
-        ],
-    },
+    showErrors: 'blur',
 };
 
 const Signin = ({ history }) => {
     const [loginUser, { loading, error }] = useMutation(LOGIN_USER);
     const [isDone, setIsDone] = useState(false);
 
-    const submitForm = async () => {
+    const submitForm = async context => {
         await loginUser({
             variables: {
-                email: formState['email'].value,
-                password: formState['password'].value,
+                email: context.values['email'],
+                password: context.values['password'],
             },
         })
             .then(resp => {
@@ -54,12 +57,10 @@ const Signin = ({ history }) => {
             });
     };
 
-    const {
-        formState,
-        isSubmitting,
-        handleChange,
-        handleSubmit,
-    } = useValidation(configs, submitForm);
+    const { isSubmitted, getFieldProps, handleSubmit } = useValidation(
+        configs,
+        submitForm,
+    );
 
     useEffect(() => {
         if (isDone) history.replace('/contracts');
@@ -71,16 +72,14 @@ const Signin = ({ history }) => {
                 <TextField
                     title="User Email"
                     placeholder="Email address"
-                    onChange={handleChange}
-                    {...formState['email']}
+                    {...getFieldProps('email')}
                 />
                 <br />
                 <TextField
                     type="password"
                     title="Password"
                     placeholder="Password"
-                    onChange={handleChange}
-                    {...formState['password']}
+                    {...getFieldProps('password')}
                 />
                 <br />
                 <ButtonWrap>
@@ -90,7 +89,7 @@ const Signin = ({ history }) => {
                         primary
                         block
                         loading={loading}
-                        disabled={isSubmitting && !error}
+                        disabled={isSubmitted && !error}
                     />
                     <div>
                         <Link to="/signup">

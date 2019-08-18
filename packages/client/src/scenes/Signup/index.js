@@ -20,42 +20,45 @@ const passwordError = '비밀번호를 입력하세요.';
 const passwordConfirmError = '비밀번호를 확인해주세요.';
 
 const configs = {
-    username: {
-        rules: [[isRequired, userNameError]],
+    fields: {
+        username: {
+            rules: [[isRequired, userNameError]],
+        },
+        email: {
+            rules: [
+                [isRequired, emailNameError],
+                [isEmail, '올바른 email 주소가 아닙니다.'],
+            ],
+        },
+        password: {
+            rules: [
+                [isRequired, passwordError],
+                [lengthBetween(8, 35), '8-35 자를 입력하세요.'],
+            ],
+        },
+        passwordConfirm: {
+            rules: [
+                [isRequired, passwordConfirmError],
+                [isSameValueWith('password'), passwordConfirmError],
+            ],
+        },
+        // isAccepted: {
+        //     default: false,
+        //     rules: [[isTrue, '동의해주세요.']],
+        // },
     },
-    email: {
-        rules: [
-            [isRequired, emailNameError],
-            [isEmail, '올바른 email 주소가 아닙니다.'],
-        ],
-    },
-    password: {
-        rules: [
-            [isRequired, passwordError],
-            [lengthBetween(8, 35), '8-35 자를 입력하세요.'],
-        ],
-    },
-    passwordConfirm: {
-        rules: [
-            [isRequired, passwordConfirmError],
-            [isSameValueWith('password'), passwordConfirmError],
-        ],
-    },
-    // isAccepted: {
-    //     default: false,
-    //     rules: [[isTrue, '동의해주세요.']],
-    // },
+    showErrors: 'blur',
 };
 
 const Register = props => {
     const [registerUser, { loading, error }] = useMutation(REGISTER_USER);
 
-    const submitForm = () => {
-        registerUser({
+    const submitForm = async context => {
+        await registerUser({
             variables: {
-                name: formState['username'].value,
-                email: formState['email'].value,
-                password: formState['password'].value,
+                name: context.values['username'],
+                email: context.values['email'],
+                password: context.values['password'],
             },
         })
             .then(() => {
@@ -66,13 +69,11 @@ const Register = props => {
             });
     };
 
-    const {
-        formState,
-        isSubmitting,
-        handleChange,
-        handleSubmit,
-    } = useValidation(configs, submitForm);
-    G.log('Signup formState', error, formState);
+    const { isSubmitted, getFieldProps, handleSubmit } = useValidation(
+        configs,
+        submitForm,
+    );
+    G.log('Signup formState', error);
 
     return (
         <div className="wrap">
@@ -80,31 +81,27 @@ const Register = props => {
                 <TextField
                     placeholder="User Name (First + Last Name)"
                     title="User Name"
-                    onChange={handleChange}
-                    {...formState['username']}
+                    {...getFieldProps('username')}
                 />
                 <br />
                 <TextField
                     placeholder="Email"
                     title="User Email"
-                    onChange={handleChange}
-                    {...formState['email']}
+                    {...getFieldProps('email')}
                 />
                 <br />
                 <TextField
                     type="password"
                     placeholder="Password"
                     title="Password"
-                    onChange={handleChange}
-                    {...formState['password']}
+                    {...getFieldProps('password')}
                 />
                 <br />
                 <TextField
                     type="password"
                     placeholder="Repeat Password"
                     title="Repeat password"
-                    onChange={handleChange}
-                    {...formState['passwordConfirm']}
+                    {...getFieldProps('passwordConfirm')}
                 />
                 <br />
                 <Button
@@ -113,7 +110,7 @@ const Register = props => {
                     primary
                     block
                     loading={loading}
-                    disabled={isSubmitting && !error}
+                    disabled={isSubmitted && !error}
                 />
             </form>
             {error && (

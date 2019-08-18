@@ -1,103 +1,133 @@
-/* @flow */
-import { useEffect, useReducer, useCallback, useRef } from 'react';
+import { useReducer, useMemo, useEffect, useCallback } from 'react';
+import useDeepCompareEffect from 'use-deep-compare-effect';
 import validate from './validate';
-import {
-    initializeFormState,
-    trimFormValues,
-    detectFormErrors,
-    createErrorState,
-    createInputState,
-} from './utils';
+// constants
+const UPDATE = 'UPDATE';
+const VALIDATE = 'VALIDATE';
+const BLUR = 'BLUR';
+const SUBMIT = 'SUBMIT';
 
 function reducer(state, { type, payload }) {
     switch (type) {
-        case 'SUBMIT_READY':
-            return { ...state, isSubmitting: payload };
-        case 'SET_FORM_STATE':
+        case UPDATE:
+            const values = { ...state.values, ...payload };
+
             return {
                 ...state,
-                formState: {
-                    ...state.formState,
-                    ...payload,
-                },
+                values,
+                errors: {},
             };
-        case 'SET_FORM_VALUES':
-            return { ...state, formValues: payload };
+        case VALIDATE:
+            return { ...state, errors: payload };
+        case BLUR:
+            const blurred = { ...state.blurred, [payload]: true };
+            return { ...state, blurred };
+        case SUBMIT:
+            return { ...state, isSubmitted: true };
         default:
             return state;
     }
 }
 
-const useForm = (configs: ConfigsType = {}, submitCallback: func): any => {
-    const [initialFormState, validator] = initializeFormState(configs);
-    const [state, dispatch] = useReducer(reducer, {
-        isSubmitting: false,
-        formState: initialFormState,
-        formValues: null,
-    });
-    const { isSubmitting, formState, formValues } = state;
-    const validateForm = validate(validator);
-    const submitCallbackRef = useRef(submitCallback);
+const useForm = (config = {}, submitCallback) => {
+    const [state, dispatch] = useReducer(reducer, getInitialState(config));
+
+    if (typeof config === 'function') config = config(state.values);
+
+    const handleSubmit = useCallback(onSubmit, []);
+    const errors = useMemo(() => getErrors(state, config), [state, config]);
+
+    const isFormValid = useMemo(
+        () => Object.values(errors).every(error => error === null),
+        [errors],
+    );
+
+    useDeepCompareEffect(() => {
+        const errors = validate(state.values, config.fields);
+
+        dispatch({ type: VALIDATE, payload: errors });
+    }, [state.values, config.fields]);
 
     useEffect(() => {
-        submitCallbackRef.current = submitCallback;
-    }, [submitCallback]);
-
-    useEffect(() => {
-        if (isSubmitting) {
-            submitCallbackRef.current(formValues);
+        if (state.isSubmitted && submitCallback) {
+            submitCallback({ values: state.values, isFormValid });
         }
-    }, [formValues, isSubmitting]);
+    }, [isFormValid, state.isSubmitted, state.values, submitCallback]);
 
-    function validateAll(validator, values, formState) {
-        const errorResult = detectFormErrors(
-            validator,
-            formState,
-            validateForm,
+    function getErrors(state, config) {
+        if (config.showErrors === 'always') {
+            return state.errors;
+        }
+
+        if (config.showErrors === 'blur') {
+            return Object.entries(state.blurred)
+                .filter(([, blurred]) => blurred)
+                .reduce(
+                    (acc, [name]) => ({ ...acc, [name]: state.errors[name] }),
+                    {},
+                );
+        }
+        return state.isSubmitted ? state.errors : {};
+    }
+
+    function getInitialState(config) {
+        if (typeof config === 'function') {
+            config = config({});
+        }
+
+        const initial = Object.keys(config.fields).reduce(
+            ([initialValues, initialBlurred], fieldName) => {
+                initialValues[fieldName] =
+                    config.fields[fieldName].initialValue || '';
+                initialBlurred[fieldName] = false;
+                return [initialValues, initialBlurred];
+            },
+            [{}, {}],
         );
-        const [hasError, errorFormState] = createErrorState(
-            errorResult,
-            values,
-        );
 
-        dispatch({ type: 'SET_FORM_STATE', payload: errorFormState });
-
-        if (!hasError) dispatch({ type: 'SUBMIT_READY', payload: true });
+        const initialErrors = validate(initial[0], config.fields);
+        return {
+            values: initial[0],
+            errors: initialErrors,
+            blurred: initial[1],
+            isSubmitted: false,
+        };
     }
 
     function onSubmit(event) {
         if (event) event.preventDefault();
 
-        const trimmedValues = trimFormValues(formState);
-
-        if (!trimmedValues) return false;
-
-        dispatch({ type: 'SET_FORM_VALUES', payload: trimmedValues });
-
-        validateAll(validator, trimmedValues, formState);
+        dispatch({ type: SUBMIT });
     }
 
-    function onChange(name, value) {
-        if (!name) return;
-        const [ok, message] = validateForm(name, value, formState);
-        G.log('ok', ok);
-        dispatch({
-            type: 'SET_FORM_STATE',
-            payload: {
-                [name]: createInputState(name, value, message),
+    function getFieldProps(fieldName) {
+        return {
+            onChange: e => {
+                const { value } = e.target;
+
+                if (!config.fields[fieldName]) return;
+
+                dispatch({
+                    type: UPDATE,
+                    payload: { [fieldName]: value },
+                });
             },
-        });
-        dispatch({ type: 'SUBMIT_READY', payload: false });
+            onBlur: () => {
+                dispatch({ type: BLUR, payload: fieldName });
+            },
+            name: fieldName,
+            value: state.values[fieldName] || '',
+            error: errors[fieldName],
+            'aria-invalid': String(!!errors[fieldName]),
+        };
     }
-
-    const handleSubmit = useCallback(onSubmit, [formState]);
-    const handleChange = useCallback(onChange, [formState]);
 
     return {
-        formState,
-        isSubmitting,
-        handleChange,
+        isSubmitted: state.isSubmitted,
+        isFormValid,
         handleSubmit,
+        getFieldProps,
+        errors,
     };
 };
 
